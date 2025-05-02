@@ -1,4 +1,4 @@
--- Criando a GUI
+-- Criando a GUI local
 local ScreenGui = Instance.new("ScreenGui")
 local MainFrame = Instance.new("Frame")
 local CloseButton = Instance.new("TextButton")
@@ -86,6 +86,58 @@ StatusLabel.Font = Enum.Font.Gotham
 StatusLabel.TextSize = 14
 StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
 
+-- Array com os números por extenso
+local numeros = {
+    "UM",
+    "DOIS",
+    "TRÊS",
+    "QUATRO",
+    "CINCO",
+    "SEIS",
+    "SETE",
+    "OITO",
+    "NOVE",
+    "DEZ",
+    "ONZE",
+    "DOZE",
+    "TREZE",
+    "QUATORZE",
+    "QUINZE",
+    "DEZESSEIS",
+    "DEZESSETE",
+    "DEZOITO",
+    "DEZENOVE",
+    "VINTE",
+    -- Adicione mais números se necessário
+}
+
+-- Função para converter o número em texto
+local function numeroParaTexto(n)
+    if n <= #numeros then
+        return numeros[n]
+    else
+        return tostring(n)
+    end
+end
+
+-- Função para simular a abertura do chat e enviar mensagem
+local function enviarMensagemNoChat(mensagem)
+    -- Simula a abertura do chat pressionando a tecla "/"
+    game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.Slash, false, game)
+    wait(0.1)
+    
+    -- Simula a digitação da mensagem
+    for _, char in pairs(game:GetService("TextChatService").ChatInputBarConfiguration:GetChildren()) do
+        if char.Name == "TargetTextChannel" then
+            char.Value = game:GetService("TextChatService").TextChannels.RBXGeneral
+        end
+    end
+    
+    -- Envia a mensagem usando o sistema de chat do Roblox
+    game.ReplicatedStorage.DefaultChatSystemChatEvents.SayMessageRequest:FireServer(mensagem, "All")
+    wait(0.1)
+end
+
 -- Função para fechar a GUI
 CloseButton.MouseButton1Click:Connect(function()
     ScreenGui:Destroy()
@@ -99,14 +151,15 @@ AutoJJsButton.MouseButton1Click:Connect(function()
         AutoJJsButton.Text = "Ativando..."
         AutoJJsButton.BackgroundColor3 = Color3.fromRGB(0, 120, 200)
         AutoJJsButton.Active = false
-
+        
         -- Enviando mensagens no chat
         coroutine.wrap(function()
-            for i = 0, count - 1 do
-                game.ReplicatedStorage.DefaultChatSystemChatEvents.SayMessageRequest:FireServer(tostring(i) .. " !", "All")
-                wait(0.8)
+            for i = 1, count do
+                local mensagem = numeroParaTexto(i) .. " !"
+                enviarMensagemNoChat(mensagem)
+                wait(0.8) -- Intervalo entre mensagens
             end
-
+            
             -- Finalizando
             StatusLabel.Text = "Status: Concluído!"
             AutoJJsButton.Text = "Ativar"
