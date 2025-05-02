@@ -192,61 +192,146 @@ local function numeroParaTexto(n)
     end
 end
 
+-- IMPORTANTE: Detecta o sistema de chat para garantir compatibilidade
+local chatSystem = "Legacy" -- Padrão
+local function detectarSistemaChat()
+    if game:GetService("TextChatService") and pcall(function() return game:GetService("TextChatService").ChatVersion end) then
+        chatSystem = "TextChatService"
+    elseif game.ReplicatedStorage:FindFirstChild("DefaultChatSystemChatEvents") and 
+           game.ReplicatedStorage.DefaultChatSystemChatEvents:FindFirstChild("SayMessageRequest") then
+        chatSystem = "Legacy"
+    else
+        -- Tenta encontrar outros módulos de chat
+        for _, v in pairs(game.ReplicatedStorage:GetDescendants()) do
+            if v.Name == "SayMessageRequest" and v:IsA("RemoteEvent") then
+                chatSystem = "Custom"
+                return v
+            end
+        end
+    end
+    return game.ReplicatedStorage.DefaultChatSystemChatEvents.SayMessageRequest
+end
+
+-- Executa a detecção no início
+local chatRemote = detectarSistemaChat()
+
 -- Função para simular a abertura do chat e enviar mensagem "jjs"
 local function enviarJJsNoChat(numero)
     local mensagem = numeroParaTexto(numero) .. " jjs"
     
-    -- Tenta identificar qual sistema de chat o jogo está usando
-    local success = pcall(function()
-        -- Tenta usar o sistema de chat mais recente (TextChatService)
-        if game:GetService("TextChatService") and game:GetService("TextChatService").ChatVersion == Enum.ChatVersion.TextChatService then
-            -- Abre o chat pressionando / (barra)
-            game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.Slash, false, game)
-            wait(0.1)
-            
-            -- Limpa qualquer texto existente
-            game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.A, false, game)
-            wait(0.05)
-            game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.LeftControl, false, game)
-            wait(0.05)
-            game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.A, false, game)
-            wait(0.05)
-            game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.A, false, game)
-            wait(0.05)
-            game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.LeftControl, false, game)
-            wait(0.05)
-            game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.Delete, false, game)
-            wait(0.05)
-            game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.Delete, false, game)
-            wait(0.1)
-            
-            -- Digita o texto caractere por caractere
-            for i = 1, #mensagem do
-                local char = string.sub(mensagem, i, i)
-                -- Simula a digitação de cada caractere
-                if char == " " then
-                    game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.Space, false, game)
-                    game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.Space, false, game)
-                else
-                    -- Para caracteres normais
-                    game:GetService("VirtualInputManager"):SendTextInputCharacterEvent(char, game)
-                end
-                wait(0.01)
+    -- Método 1: Usar o sistema legado mais comum
+    local function metodo1()
+        -- Pressionar / para abrir o chat
+        game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.Slash, false, game)
+        wait(0.2)
+        game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.Slash, false, game)
+        wait(0.3)
+        
+        -- Apaga o "/" que aparece automaticamente
+        game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.Backspace, false, game)
+        game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.Backspace, false, game)
+        wait(0.1)
+        
+        -- Digita a mensagem
+        for i = 1, #mensagem do
+            local char = string.sub(mensagem, i, i)
+            if char == " " then
+                game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.Space, false, game)
+                game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.Space, false, game)
+            else
+                game:GetService("VirtualInputManager"):SendTextInputCharacterEvent(char, game)
             end
-            
-            -- Pressiona Enter para enviar
-            wait(0.1)
-            game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.Return, false, game)
-            game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.Return, false, game)
+            wait(0.01)
+        end
+        
+        -- Pressiona Enter para enviar
+        wait(0.2)
+        game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.Return, false, game)
+        wait(0.1)
+        game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.Return, false, game)
+    end
+    
+    -- Método 2: Usar o sistema de chat direto
+    local function metodo2()
+        -- Usa o chat remoto detectado no início
+        if chatSystem == "Legacy" or chatSystem == "Custom" then
+            -- Sistema normal
+            if chatRemote then
+                chatRemote:FireServer(mensagem, "All")
+            else
+                -- Fallback para o caminho padrão
+                game.ReplicatedStorage.DefaultChatSystemChatEvents.SayMessageRequest:FireServer(mensagem, "All")
+            end
+        elseif chatSystem == "TextChatService" then
+            -- Novo sistema de chat
+            game:GetService("TextChatService").TextChannels.RBXGeneral:SendAsync(mensagem)
         else
-            -- Sistema de chat legado (ReplicatedStorage)
+            -- Último caso, tenta o sistema mais comum
             game.ReplicatedStorage.DefaultChatSystemChatEvents.SayMessageRequest:FireServer(mensagem, "All")
         end
+    end
+    
+    -- Método 3: Usar o sistema de foco no chat
+    local function metodo3()
+        -- Abre o chat pressionando a tecla padrão
+        local starterGui = game:GetService("StarterGui")
+        starterGui:SetCore("ChatActive", true)
+        wait(0.3)
+        
+        -- Digita a mensagem usando TextBox automaticamente
+        for i = 1, #mensagem do
+            local char = string.sub(mensagem, i, i)
+            if char == " " then
+                game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.Space, false, game)
+                game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.Space, false, game)
+            else
+                game:GetService("VirtualInputManager"):SendTextInputCharacterEvent(char, game)
+            end
+            wait(0.01)
+        end
+        
+        -- Pressiona Enter para enviar
+        wait(0.2)
+        game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.Return, false, game)
+        wait(0.1)
+        game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.Return, false, game)
+    end
+    
+    -- Método 4: Usando método direto de chat combinado com abertura de teclado
+    local function metodo4()
+        -- Tenta usar todos os métodos principais primeiro
+        -- Abre o chat com "/" e depois Backspace
+        game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.Slash, false, game)
+        wait(0.2)
+        game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.Slash, false, game)
+        wait(0.3)
+        
+        -- Envia diretamente via FireServer
+        game.ReplicatedStorage.DefaultChatSystemChatEvents.SayMessageRequest:FireServer(mensagem, "All")
+    end
+    
+    -- Tenta todos os métodos, começando pelo mais confiável
+    local success = pcall(function()
+        -- Primeiro tentamos diretamente o método de envio do sistema
+        metodo2()
+        
+        -- Em paralelo (para maior chance de funcionar) executamos o método 4
+        spawn(function()
+            metodo4()
+        end)
     end)
     
-    -- Caso falhe, usa o método alternativo
+    -- Se falhar o método principal, tenta os outros
     if not success then
-        game.ReplicatedStorage.DefaultChatSystemChatEvents.SayMessageRequest:FireServer(mensagem, "All")
+        pcall(function()
+            metodo1()
+        end)
+        
+        wait(0.2)
+        
+        pcall(function() 
+            metodo3() 
+        end)
     end
 end
 
@@ -314,8 +399,29 @@ AutoJJsButton.MouseButton1Click:Connect(function()
         
         AutoJJsButton.Active = false
         
+        -- Primeira tentativa de ativar o chat antes do loop
+        -- Isso ajuda a garantir que o chat esteja aberto
+        pcall(function()
+            -- Método direto de abrir o chat
+            local starterGui = game:GetService("StarterGui")
+            starterGui:SetCore("ChatActive", true)
+            wait(0.3)
+        end)
+        
         -- Enviando mensagens no chat
         coroutine.wrap(function()
+            -- Segurança adicional, tentando abrir o chat usando tecla
+            pcall(function()
+                game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.Slash, false, game)
+                wait(0.2)
+                game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.Slash, false, game)
+                wait(0.2)
+                game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.Backspace, false, game)
+                wait(0.1)
+                game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.Backspace, false, game)
+            end)
+            
+            -- Agora começa a enviar as mensagens
             for i = 1, count do
                 -- Atualiza o status durante envio
                 StatusLabel.Text = "Status: Enviando " .. i .. " de " .. count
